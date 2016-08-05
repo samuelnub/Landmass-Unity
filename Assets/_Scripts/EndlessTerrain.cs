@@ -14,8 +14,17 @@ public class EndlessTerrain : MonoBehaviour {
         MeshRenderer meshRenderer;
         MeshFilter meshFilter;
 
-        public TerrainChunk(Vector2 coord, int size, Transform parent, Material material)
+        LODInfo[] detailLevels;
+        LODMesh[] lodMeshes;
+
+        MapData mapData;
+        bool mapDataReceived;
+        int previousLODIndex = -1;
+
+        public TerrainChunk(Vector2 coord, int size, LODInfo[] detailLevels, Transform parent, Material material)
         {
+            this.detailLevels = detailLevels;
+
             this.position = coord * size;
             this.bounds = new Bounds(position, Vector2.one * size);
             Vector3 positionV3 = new Vector3(position.x, 0.0f, position.y);
@@ -27,29 +36,62 @@ public class EndlessTerrain : MonoBehaviour {
             this.meshObject.transform.parent = parent;
             this.meshRenderer.material = material;
 
+            this.lodMeshes = new LODMesh[detailLevels.Length];
+            for (int c = 0; c < detailLevels.Length; c++)
+            {
+                this.lodMeshes[c] = new LODMesh(detailLevels[c].lod);
+            }
+
             this.SetVisible(false); // Start out disabled
             mapGenerator.RequestMapData(this.OnMapDataReceived); // Actions<> are cool
         }
 
         void OnMapDataReceived(MapData mapData)
         {
-            mapGenerator.RequestMeshData(mapData, OnMeshDataReceived); // Passing in an action
-            print("From EndlessTerrain: got map data!");
+            this.mapData = mapData;
+            this.mapDataReceived = true;
         }
-
-        void OnMeshDataReceived(MeshData meshData)
-        {
-            this.meshFilter.mesh = meshData.CreateMesh();
-            print("From EndlessTerrain: got mesh data!");
-        }
-
+        
         public void UpdateTerrainChunk()
         {
-            // See if player is within render range, if not, deactivate this meshObject
-            // oh cool, nested classes can use its parent classes' stuff
-            float viewerDistFromNearestEdge = Mathf.Sqrt(this.bounds.SqrDistance(viewerPos));
-            bool visible = viewerDistFromNearestEdge <= maxViewDist;
-            this.SetVisible(visible);
+            if (this.mapDataReceived)
+            {
+                // See if player is within render range, if not, deactivate this meshObject
+                // oh cool, nested classes can use its parent classes' stuff
+                float viewerDistFromNearestEdge = Mathf.Sqrt(this.bounds.SqrDistance(viewerPos));
+                bool visible = viewerDistFromNearestEdge <= maxViewDist;
+
+                if (visible)
+                {
+                    int lodIndex = 0;
+                    for (int c = 0; c < this.detailLevels.Length - 1; c++)
+                    {
+                        if (viewerDistFromNearestEdge > this.detailLevels[c].visibleDistThreshold)
+                        {
+                            lodIndex = c + 1;
+                        }
+                        else
+                        {
+                            break;
+                        }
+                    }
+                    if (lodIndex != this.previousLODIndex)
+                    {
+                        LODMesh lodMesh = this.lodMeshes[lodIndex];
+                        if (lodMesh.hasMesh)
+                        {
+                            this.previousLODIndex = lodIndex;
+                            this.meshFilter.mesh = lodMesh.mesh;
+                        }
+                        else if (!lodMesh.hasRequestedMesh)
+                        {
+                            lodMesh.RequestMesh(this.mapData);
+                        }
+                    }
+                }
+
+                this.SetVisible(visible);
+            }
         }
 
         public void SetVisible(bool visible)
@@ -63,7 +105,41 @@ public class EndlessTerrain : MonoBehaviour {
         }
     }
     
-    public const float maxViewDist = 512.0f;
+    // Each terrainchunk will have an array of these
+    class LODMesh
+    {
+        public Mesh mesh;
+        public bool hasRequestedMesh;
+        public bool hasMesh;
+        int lod;
+
+        public LODMesh(int lod)
+        {
+            this.lod = lod;
+        }
+
+        void OnMeshDataReceived(MeshData meshData)
+        {
+            this.mesh = meshData.CreateMesh();
+            this.hasMesh = true;
+        }
+
+        public void RequestMesh(MapData mapData)
+        {
+            this.hasRequestedMesh = true;
+            mapGenerator.RequestMeshData(mapData, lod, this.OnMeshDataReceived);
+        }
+    }
+
+    [System.Serializable]
+    public struct LODInfo
+    {
+        public int lod;
+        public float visibleDistThreshold;
+    }
+    
+    public LODInfo[] detailLevels;
+    public static float maxViewDist;
     public Transform viewer;
     public Material mapMaterial;
 
@@ -78,6 +154,9 @@ public class EndlessTerrain : MonoBehaviour {
     void Start()
     {
         mapGenerator = FindObjectOfType<MapGenerator>();
+
+        maxViewDist = this.detailLevels[this.detailLevels.Length - 1].visibleDistThreshold;
+
         this.chunkSize = MapGenerator.mapChunkSize - 1;
         this.chunksVisibleInViewDist = Mathf.RoundToInt(maxViewDist / chunkSize);
 
@@ -117,7 +196,7 @@ public class EndlessTerrain : MonoBehaviour {
                 }
                 else
                 {
-                    terrainChunkDictionary.Add(viewedChunkCoord, new TerrainChunk(viewedChunkCoord, chunkSize, this.transform, this.mapMaterial));
+                    terrainChunkDictionary.Add(viewedChunkCoord, new TerrainChunk(viewedChunkCoord, chunkSize, this.detailLevels, this.transform, this.mapMaterial));
                 }
             }
         }

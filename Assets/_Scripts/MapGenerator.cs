@@ -21,7 +21,7 @@ public class MapGenerator : MonoBehaviour {
     }
     public DrawMode drawMode;
     
-    const int mapChunkSize = 241;
+    public const int mapChunkSize = 241; // -1 so its actually 240
 
     [Range(0,6)]
     public int levelOfDetail;

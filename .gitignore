@@ -1,0 +1,11 @@
+*.meta
+Library/
+ProjectSettings/
+Temp/
+Assets/Editor/
+Assets/Standard Assets/
+Assets/UnityVS
+*.sln
+Landmass.CSharp.Plugins.csproj
+*.csproj
+.vs/Landmass/v14/.suo

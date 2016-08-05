@@ -35,21 +35,25 @@ public class EndlessTerrain : MonoBehaviour {
             this.meshObject.transform.position = positionV3;
             this.meshObject.transform.parent = parent;
             this.meshRenderer.material = material;
+            this.SetVisible(false); // Start out disabled
 
             this.lodMeshes = new LODMesh[detailLevels.Length];
             for (int c = 0; c < detailLevels.Length; c++)
             {
                 this.lodMeshes[c] = new LODMesh(detailLevels[c].lod, this.UpdateTerrainChunk);
             }
-
-            this.SetVisible(false); // Start out disabled
-            mapGenerator.RequestMapData(this.OnMapDataReceived); // Actions<> are cool
+            
+            mapGenerator.RequestMapData(this.position, this.OnMapDataReceived); // Actions<> are cool
         }
 
         void OnMapDataReceived(MapData mapData)
         {
             this.mapData = mapData;
             this.mapDataReceived = true;
+
+            Texture2D texture = TextureGenerator.TextureFromColorMap(mapData.colorMap, MapGenerator.mapChunkSize, MapGenerator.mapChunkSize);
+            this.meshRenderer.material.mainTexture = texture;
+
             this.UpdateTerrainChunk();
         }
         
@@ -169,7 +173,7 @@ public class EndlessTerrain : MonoBehaviour {
         this.chunkSize = MapGenerator.mapChunkSize - 1;
         this.chunksVisibleInViewDist = Mathf.RoundToInt(maxViewDist / chunkSize);
 
-        // The middle chunk's centre is at 0,0, so the chunk of the left's centre is at -240,0, etc... but the number is -1,0
+        this.UpdateVisibleChunks();
     }
 
     void Update()

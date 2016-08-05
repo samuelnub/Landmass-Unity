@@ -78,7 +78,7 @@ public class MapGenerator : MonoBehaviour {
 
     public void DrawMapInEditor()
     {
-        MapData mapData = this.GenerateMapData();
+        MapData mapData = this.GenerateMapData(Vector2.zero);
         MapDisplay display = FindObjectOfType<MapDisplay>();
         if (this.drawMode == DrawMode.NOISEMAP)
         {
@@ -94,18 +94,18 @@ public class MapGenerator : MonoBehaviour {
         }
     }
 
-    public void RequestMapData(Action<MapData> callback)
+    public void RequestMapData(Vector2 centre, Action<MapData> callback)
     {
         ThreadStart threadStart = delegate // dele my gate
         {
-            this.MapDataThread(callback);
+            this.MapDataThread(centre, callback);
         };
         new Thread(threadStart).Start(); // Boom, new thread being used for this now, methods called while this thread is in use will be run on the thread
     }
 
-    void MapDataThread(Action<MapData> callback)
+    void MapDataThread(Vector2 centre, Action<MapData> callback)
     {
-        MapData mapData = this.GenerateMapData();
+        MapData mapData = this.GenerateMapData(centre);
         // Lock this mapdatathreadinfoqueue so that no other thread can intervene while its doing its business
         lock (this.mapDataThreadInfoQueue)
         {
@@ -152,9 +152,9 @@ public class MapGenerator : MonoBehaviour {
         }
     }
 
-    MapData GenerateMapData()
+    MapData GenerateMapData(Vector2 centre)
     {
-        float[,] noiseMap = Noise.GenerateNoiseMap(mapChunkSize, mapChunkSize, this.seed, this.noiseScale, this.octaves, this.persistance, this.lacunarity, this.offset);
+        float[,] noiseMap = Noise.GenerateNoiseMap(mapChunkSize, mapChunkSize, this.seed, this.noiseScale, this.octaves, this.persistance, this.lacunarity, centre + this.offset);
         
         Color[] colorMap = new Color[mapChunkSize * mapChunkSize];
         for(int y = 0; y < mapChunkSize; y++)

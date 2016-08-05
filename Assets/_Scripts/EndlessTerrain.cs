@@ -39,7 +39,7 @@ public class EndlessTerrain : MonoBehaviour {
             this.lodMeshes = new LODMesh[detailLevels.Length];
             for (int c = 0; c < detailLevels.Length; c++)
             {
-                this.lodMeshes[c] = new LODMesh(detailLevels[c].lod);
+                this.lodMeshes[c] = new LODMesh(detailLevels[c].lod, this.UpdateTerrainChunk);
             }
 
             this.SetVisible(false); // Start out disabled
@@ -50,6 +50,7 @@ public class EndlessTerrain : MonoBehaviour {
         {
             this.mapData = mapData;
             this.mapDataReceived = true;
+            this.UpdateTerrainChunk();
         }
         
         public void UpdateTerrainChunk()
@@ -112,16 +113,19 @@ public class EndlessTerrain : MonoBehaviour {
         public bool hasRequestedMesh;
         public bool hasMesh;
         int lod;
+        System.Action updateCallback;
 
-        public LODMesh(int lod)
+        public LODMesh(int lod, System.Action updateCallback)
         {
             this.lod = lod;
+            this.updateCallback = updateCallback;
         }
 
         void OnMeshDataReceived(MeshData meshData)
         {
             this.mesh = meshData.CreateMesh();
             this.hasMesh = true;
+            this.updateCallback();
         }
 
         public void RequestMesh(MapData mapData)
@@ -137,13 +141,18 @@ public class EndlessTerrain : MonoBehaviour {
         public int lod;
         public float visibleDistThreshold;
     }
-    
+
+    // Nice naming, wubber
+    const float viewerMoveThresholdForChunkUpdate = 25.0f;
+    const float sqrViewerMoveThresholdForChunkUpdate = viewerMoveThresholdForChunkUpdate * viewerMoveThresholdForChunkUpdate;
+
     public LODInfo[] detailLevels;
     public static float maxViewDist;
     public Transform viewer;
     public Material mapMaterial;
 
     public static Vector2 viewerPos;
+    Vector2 viewerPosOld;
     static MapGenerator mapGenerator;
     int chunkSize;
     int chunksVisibleInViewDist;
@@ -166,7 +175,11 @@ public class EndlessTerrain : MonoBehaviour {
     void Update()
     {
         viewerPos = new Vector2(viewer.position.x, viewer.position.z);
-        this.UpdateVisibleChunks();
+        if((this.viewerPosOld - viewerPos).sqrMagnitude > sqrViewerMoveThresholdForChunkUpdate)
+        {
+            this.viewerPosOld = viewerPos;
+            this.UpdateVisibleChunks();
+        }
     }
 
     void UpdateVisibleChunks()

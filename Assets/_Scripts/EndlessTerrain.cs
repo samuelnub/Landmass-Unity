@@ -11,19 +11,36 @@ public class EndlessTerrain : MonoBehaviour {
         Vector2 position;
         Bounds bounds;
 
-        public TerrainChunk(Vector2 coord, int size, Transform parent)
+        MeshRenderer meshRenderer;
+        MeshFilter meshFilter;
+
+        public TerrainChunk(Vector2 coord, int size, Transform parent, Material material)
         {
             this.position = coord * size;
             this.bounds = new Bounds(position, Vector2.one * size);
             Vector3 positionV3 = new Vector3(position.x, 0.0f, position.y);
 
-            this.meshObject = GameObject.CreatePrimitive(PrimitiveType.Plane);
+            this.meshObject = new GameObject("Terrain Chunk");
+            this.meshRenderer = meshObject.AddComponent<MeshRenderer>();
+            this.meshFilter = meshObject.AddComponent<MeshFilter>();
             this.meshObject.transform.position = positionV3;
-            this.meshObject.transform.localScale = Vector3.one * size / 10.0f; // Default plane is 10 units wide
-
             this.meshObject.transform.parent = parent;
+            this.meshRenderer.material = material;
 
             this.SetVisible(false); // Start out disabled
+            mapGenerator.RequestMapData(this.OnMapDataReceived); // Actions<> are cool
+        }
+
+        void OnMapDataReceived(MapData mapData)
+        {
+            mapGenerator.RequestMeshData(mapData, OnMeshDataReceived); // Passing in an action
+            print("From EndlessTerrain: got map data!");
+        }
+
+        void OnMeshDataReceived(MeshData meshData)
+        {
+            this.meshFilter.mesh = meshData.CreateMesh();
+            print("From EndlessTerrain: got mesh data!");
         }
 
         public void UpdateTerrainChunk()
@@ -48,8 +65,10 @@ public class EndlessTerrain : MonoBehaviour {
     
     public const float maxViewDist = 512.0f;
     public Transform viewer;
+    public Material mapMaterial;
 
     public static Vector2 viewerPos;
+    static MapGenerator mapGenerator;
     int chunkSize;
     int chunksVisibleInViewDist;
 
@@ -58,6 +77,7 @@ public class EndlessTerrain : MonoBehaviour {
 
     void Start()
     {
+        mapGenerator = FindObjectOfType<MapGenerator>();
         this.chunkSize = MapGenerator.mapChunkSize - 1;
         this.chunksVisibleInViewDist = Mathf.RoundToInt(maxViewDist / chunkSize);
 
@@ -97,7 +117,7 @@ public class EndlessTerrain : MonoBehaviour {
                 }
                 else
                 {
-                    terrainChunkDictionary.Add(viewedChunkCoord, new TerrainChunk(viewedChunkCoord, chunkSize, this.transform));
+                    terrainChunkDictionary.Add(viewedChunkCoord, new TerrainChunk(viewedChunkCoord, chunkSize, this.transform, this.mapMaterial));
                 }
             }
         }

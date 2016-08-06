@@ -26,6 +26,7 @@ public static class Noise {
             float offsetY = module.Next(-100000, 100000) - offset.y;
             octaveOffsets[c] = new Vector2(offsetX,offsetY);
             maxPossibleHeight += amplitude;
+            amplitude *= persistance;
         }
 
         if(scale <= 0)
@@ -87,7 +88,7 @@ public static class Noise {
                 }
                 else
                 {
-                    float normalizedHeight = (noiseMap[x,y] + 1) / (maxPossibleHeight / 0.9f);
+                    float normalizedHeight = (noiseMap[x,y] + 1) / (maxPossibleHeight);
                     noiseMap[x, y] = Mathf.Clamp(normalizedHeight,0,int.MaxValue);
                 }
 
